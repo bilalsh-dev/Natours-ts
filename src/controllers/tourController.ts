@@ -45,7 +45,6 @@ export const createTour = catchAsync(
     // here we calling the method on the model itself
 
     const newTour = await TourModel.create(req.body);
-    console.log("req.body", req.body);
 
     res.status(201).json({
       status: "success",
