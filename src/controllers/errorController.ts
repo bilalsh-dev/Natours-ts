@@ -1,14 +1,31 @@
-import { Request, Response, NextFunction, response } from "express";
+import { Request, Response, NextFunction } from "express";
 import AppError from "../utils/appError";
+import { CastError } from "mongoose";
+
 // interface IAppError extends Error {
 //   statusCode?: number;
 //   status?: string;
 //   isOperational: boolean;
 // }
-const handleCastErrorDB = (err: any) => {
+const handleCastErrorDB = (err: CastError) => {
   const message = `Invalid ${err.path}: ${err.value}.`;
   return new AppError(message, 400);
 };
+const handleDuplicateFieldsDB = (err: any) => {
+  const [[key, value]] = Object.entries(err.keyValue);
+
+  const message = `Duplicate field value:${key} ${value}. Please use another value!`;
+  return new AppError(message, 400);
+};
+
+const handleValidationErrorDB = (err: any) => {
+  console.log("err", err);
+  const errors = Object.values(err.errors).map((el: any) => el.message);
+
+  const message = `Invalid input data. ${errors.join(". ")}`;
+  return new AppError(message, 400);
+};
+
 const sendErrorDev = (err: AppError, res: Response) => {
   res.status(err.statusCode!).json({
     status: err.status,
@@ -36,7 +53,7 @@ const sendErrorProd = (err: AppError, res: Response) => {
   }
 };
 export const globalErrorHandler = (
-  err: AppError,
+  err: any,
   req: Request,
   res: Response,
   next: NextFunction
@@ -47,7 +64,13 @@ export const globalErrorHandler = (
     sendErrorDev(err, res);
   } else if (process.env.NODE_ENV === "production") {
     let error = { ...err };
-    if (error.name === "CastError") handleCastErrorDB(error);
+    if (err.name === "CastError") error = handleCastErrorDB(error as any);
+    if (err.code === 11000) error = handleDuplicateFieldsDB(error);
+
+    if (err.name === "ValidationError") {
+      error = handleValidationErrorDB(error);
+    }
+
     sendErrorProd(error, res);
   }
 };
