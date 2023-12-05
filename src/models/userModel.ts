@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import mongoose, { Schema, Document, Model } from "mongoose";
 import validator from "validator";
-// import bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 
 interface UserDocument extends Document {
   name: string;
@@ -10,16 +10,16 @@ interface UserDocument extends Document {
   //   role: "user" | "guide" | "lead-guide" | "admin";
   password: string;
   passwordConfirm: string;
-  //   passwordChangedAt?: Date;
+  passwordChangedAt?: Date;
   //   passwordResetToken?: string;
   //   passwordResetExpires?: Date;
   //   active: boolean;
 
-  //   correctPassword(
-  //     candidatePassword: string,
-  //     userPassword: string
-  //   ): Promise<boolean>;
-  //   changedPasswordAfter(JWTTimestamp: number): boolean;
+  correctPassword(
+    candidatePassword: string,
+    userPassword: string
+  ): Promise<boolean>;
+  changedPasswordAfter(JWTTimestamp: number): boolean;
   //   createPasswordResetToken(): string;
 }
 
@@ -50,7 +50,7 @@ const userSchema = new Schema<UserDocument, UserModel>({
     type: String,
     required: [true, "Please provide a password"],
     minlength: 8,
-    select: false,
+    select: false, // won't show in the output
   },
   passwordConfirm: {
     type: String,
@@ -73,17 +73,17 @@ const userSchema = new Schema<UserDocument, UserModel>({
   //   },
 });
 
-// userSchema.pre("save", async function (next) {
-//   // Only run this function if password was actually modified
-//   if (!this.isModified("password")) return next();
+userSchema.pre("save", async function (next) {
+  // Only run this function if password was actually modified
+  if (!this.isModified("password")) return next();
 
-//   // Hash the password with cost of 12
-//   this.password = await bcrypt.hash(this.password, 12);
+  // Hash the password with cost of 12
+  this.password = await bcrypt.hash(this.password, 12);
 
-//   // Delete passwordConfirm field
-//   this.passwordConfirm = undefined;
-//   next();
-// });
+  // Delete passwordConfirm field
+  this.passwordConfirm = "";
+  next();
+});
 
 // userSchema.pre("save", function (next) {
 //   if (!this.isModified("password") || this.isNew) return next();
@@ -98,27 +98,27 @@ const userSchema = new Schema<UserDocument, UserModel>({
 //   next();
 // });
 
-// userSchema.methods.correctPassword = async function (
-//   candidatePassword: string,
-//   userPassword: string
-// ): Promise<boolean> {
-//   return await bcrypt.compare(candidatePassword, userPassword);
-// };
+userSchema.methods.correctPassword = async function (
+  candidatePassword: string,
+  userPassword: string
+): Promise<boolean> {
+  return await bcrypt.compare(candidatePassword, userPassword);
+};
 
-// userSchema.methods.changedPasswordAfter = function (
-//   JWTTimestamp: number
-// ): boolean {
-//   if (this.passwordChangedAt) {
-//     const changedTimestamp = parseInt(
-//       (this.passwordChangedAt.getTime() / 1000).toString(),
-//       10
-//     );
+userSchema.methods.changedPasswordAfter = function (
+  JWTTimestamp: number
+): boolean {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(
+      (this.passwordChangedAt.getTime() / 1000).toString(),
+      10
+    );
 
-//     return JWTTimestamp < changedTimestamp;
-//   }
-//   // False means NOT changed
-//   return false;
-// };
+    return JWTTimestamp < changedTimestamp;
+  }
+  // False means NOT changed
+  return false;
+};
 
 // userSchema.methods.createPasswordResetToken = function (): string {
 //   const resetToken = crypto.randomBytes(32).toString("hex");
